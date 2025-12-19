@@ -12,7 +12,7 @@ from io import BytesIO
 
 st.set_page_config(page_title="2x4 Label - Wide Barcode", layout="wide")
 st.title("🖨️ 2×4 Label Generator (Wide & Clear Barcode)")
-st.write("Optimized for scanning: wider bars, taller, with quiet zones.")
+st.write("Optimized for scanning: wider bars, taller, with quiet zones. Includes extra bottom-left ID.")
 
 if 'rows' not in st.session_state:
     st.session_state.rows = 1
@@ -29,13 +29,16 @@ col2.button("➖ Remove Item", on_click=remove_row)
 items = []
 for i in range(st.session_state.rows):
     st.subheader(f"Item {i+1}")
-    c1, c2 = st.columns([2, 3])
+    c1, c2, c3 = st.columns([2, 2, 2])
     with c1:
         bc = st.text_input("Item Number (Barcode)", key=f"bc_{i}")
     with c2:
         name = st.text_input("Description", key=f"name_{i}")
+    with c3:
+        extra_id = st.text_input("Extra ID (e.g., Lot)", key=f"extra_{i}")
+    # Only include if barcode is provided (extra_id can be blank)
     if bc.strip():
-        items.append((bc.strip(), name.strip()))
+        items.append((bc.strip(), name.strip(), extra_id.strip()))
 
 if st.button("📄 Generate PDF"):
     if not items:
@@ -51,7 +54,9 @@ if st.button("📄 Generate PDF"):
         style.fontSize = 11
         style.alignment = 1  # center
 
-        for idx, (bc_val, item_name) in enumerate(items):
+        ITEM_FONT_SIZE = 15  # consistent size for both bottom texts
+
+        for idx, (bc_val, item_name, extra_id) in enumerate(items):
             if idx > 0:
                 c.showPage()
 
@@ -62,45 +67,46 @@ if st.button("📄 Generate PDF"):
                 p.drawOn(c, (width - w) / 2, height - 0.4 * inch)
 
             # === WIDE & CLEAR BARCODE ===
-            # Wider bars, taller, and forced minimum width via scaling
             barcode_obj = createBarcodeDrawing(
                 'Code128',
                 value=bc_val,
-                barWidth=0.025 * inch,    # ← WIDER BARS (was 0.014)
-                barHeight=0.7 * inch,     # ← TALLER (better scan redundancy)
-                humanReadable=False,      # we draw text ourselves
-                quietZone=0.15 * inch     # ← quiet margin on left/right
+                barWidth=0.018 * inch,
+                barHeight=0.7 * inch,
+                humanReadable=False,
+                quietZone=0.15 * inch
             )
 
-            # Ensure it doesn't exceed label width
             MAX_BARCODE_WIDTH = 3.6 * inch
             if barcode_obj.width > MAX_BARCODE_WIDTH:
-                # Optional: scale down if too wide (rare for Code128)
                 scale_factor = MAX_BARCODE_WIDTH / barcode_obj.width
                 barcode_obj.scale(scale_factor, 1)
                 barcode_obj.width = MAX_BARCODE_WIDTH
 
             x_bc = (width - barcode_obj.width) / 2
             y_bc = height / 2 - barcode_obj.height / 2 - 0.05 * inch
-
             renderPDF.draw(barcode_obj, c, x_bc, y_bc)
 
-            # --- Large item number below barcode ---
-            item_font_size = 15
-            text_width = stringWidth(bc_val, 'Helvetica-Bold', item_font_size)
+            # --- Centered item number (barcode value) ---
+            text_width = stringWidth(bc_val, 'Helvetica-Bold', ITEM_FONT_SIZE)
             text_x = (width - text_width) / 2
-            text_y = y_bc - 0.2 * inch  # generous spacing
-            c.setFont("Helvetica-Bold", item_font_size)
+            text_y = y_bc - 0.22 * inch
+            c.setFont("Helvetica-Bold", ITEM_FONT_SIZE)
             c.setFillColor(black)
             c.drawString(text_x, text_y, bc_val)
+
+            # --- Extra ID in bottom-left corner ---
+            if extra_id:
+                c.setFont("Helvetica-Bold", ITEM_FONT_SIZE)
+                # Left-align with small padding (0.1" from left)
+                c.drawString(0.1 * inch, 0.12 * inch, extra_id)
 
         c.save()
         buffer.seek(0)
 
-        st.success(f"✅ Generated {len(items)} labels with wide, clear barcodes!")
+        st.success(f"✅ Generated {len(items)} labels with extra ID in bottom-left!")
         st.download_button(
             "⬇️ Download PDF",
             buffer,
-            "2x4_labels_wide_barcode.pdf",
+            "2x4_labels_with_extra_id.pdf",
             "application/pdf"
         )
