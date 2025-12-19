@@ -70,7 +70,7 @@ if st.button("📄 Generate PDF"):
             barcode_obj = createBarcodeDrawing(
                 'Code128',
                 value=bc_val,
-                barWidth=0.018 * inch,
+                barWidth=0.025 * inch,
                 barHeight=0.7 * inch,
                 humanReadable=False,
                 quietZone=0.15 * inch
